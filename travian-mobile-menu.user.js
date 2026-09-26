@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Travian Mobile Menu
 // @namespace    github.com/Logical-Developer/Travian-Mobile-Menu
-// @version      1.0.0
+// @version      1.1.0
 // @description  Mobile menu with village list, resources and quick shortcuts for Travian
 // @author       Logical-Developer
 // @match        https://*.travian.com/*
@@ -21,12 +21,24 @@
   const CFG = {
     STORAGE: "travian_master_storage",
     SCRIPT_ID: "TravianMobileMenu",
-    SCRIPT_VERSION: "1.0.0",
+    SCRIPT_VERSION: "1.1.0",
     TICK_IDLE_MS: 2500,
     TICK_HIDDEN_MS: 10000,
     UI_STATE_KEY: "travian_builder_ui_v1",
     MINIMIZED_BOTTOM_PX: 200,
     PANEL_MAX_VH: 50,
+  };
+
+  /* ═══ SVG icons (from Travian native) ═══ */
+  const ICONS = {
+    rally:
+      "M149.6 85.8h20.7v150.5l-70.6-39.6-71.1 39.6V85.8h21.2v115.5l50.1-31.4 49.7 31.4V85.8Zm-13.1.7h-74v88.9L99.6 151l36.8 24.4V86.5Zm50.3-35.2c-3.5 0-6.6 1.4-8.8 3.7H21.1C14 47.2-.4 52.8 0 63.6c-.4 10.8 14 16.5 21.1 8.6H178c17.9 15.1 32.2-18.6 8.8-20.9ZM87.4 219.8V250h24v-30.2c-14-3.7-10.1-3.7-24 0ZM96.6 39c7.6 2.7 19.5-5 22-8.5 1.6-2 1.7-4.8.2-6.7L100.6-.1h-.2L81.9 23.8c-4 7.5 5.6 11.9 14.7 15.2Z",
+    market:
+      "M23.5 108.2c-1.7.5-8.5-.3-5.1-7.2-1-3.6 1.2-6.6 4.3-6.1 1.4-6 1.1-10.5 11.5-9.1.8-2.2 8.9-4.3 13.9-.3h2.4c-.8-1-14.3-22.6-24.1-17-2.6 4.2-5.3.1-8.8-.4 0 0-1.1 10.7-7.7 5.2-9.2.9-14.2-4.4-5-10.7 0 0-2.8-7.9 6.7-5.6.5-12.1 4.5-17.9 16.8-11.8 7.4-13.8 46.5 28.9 49.9 31.2-3.4-5.4-18.4-30.6-27.4-34.1-3.9-1-17.4-4.1-10.6-10.7-1.4-1.7-1.4-3.1 1.1-2.6 2.5.4 5.1 3.1 5.1 3.1l13.3 8.3-9.7-12.9s-3.5-1.5-4.5-1.9c-1-.4-1.6-3.9 2.4-4.5 4-.6 10.8 2.2 10.8 2.2s-3.9-6.7-4.5-6.7-4.5-5.3 2-5.5c-.9-14.7 11.4 3 11.4 3.6 0 0-1.6-9.2.8-11.4C77.6-8.4 85 14.3 86 18.8c4.7 3 5.7 10.9 6.3 14.9l5.3 8.1-2.8-15.5c-8.4-14.6-6.4-36 12.1-15.1.3-6.3 6.6-4.4 8.6-1.2l2.8 8.9s1.8-8.5 4.3-9.8 4.9-.8 5.3 3.3c4.5-2 7.3-2.2 8.7 1.2 14.1 6.3.6 18.2-2.5 26.9-.8 1.8-3.3 12.4-3.3 12.4L146 35.7s-.8-6.3 7.5-5.3c3.1-5.3 8.1-13.8 15.3-7.9 6.5-3.3 12.8-5.3 14.8 1.4 7.1.4 12.2.2 12.4 10.4 7.1 8.3 6.1 16-3 11.2-3.1 2-5.3 1.8-6.7-.8-1.8 4.5-8.5 12.8-13.4 5.5-2 1.4-27.5 17.3-31.1 35.1 15.9-14.2 27.9-28.3 41.4-25.9 7.3-4.2 11.2-6.7 16.5-1.2 4.3-.2 5.9 4.1 5.7 5.9 5.9-1 10.4-1 10.8 4.1.8 8.6-1.3 17.2-7.7 9.8 0 0-7.9 4.5-9.2-2.8-4.7 3.1-11.4 6.3-14.6 1.6-2.6 1.8-8.1 6.1-11 12.6-26.8 7.5-105.6 30.9-105.6 30.9l-5.6-5s-4.2 8-9.9 0c-1.7 0-3.8 0-5.1 3.2-12.9.9.6-12.3 4.2-11 0 0-1.8-4.3 4.7-4.2-12-13.9-24.7-2.2-32.9 4.9Zm151.6 5.7c7.6-1.3 35.5 21.8 42 25.1l10.8-2.5c-14.6-7.6-24.2-35.1-17.3-49.7-13.9 3.6-97.8 25.5-98.4 25.7l39.8 11.4v13.8h6.1c-1.5-11.5 4.5-23.7 16.9-23.7ZM37.2 138.2l86.6 25.3c-.2-4.4-.1-21.4-.1-26.1h20.5v-8.2l-42.9-9.1s-63.1 18.1-64 18.1Zm-7.9 11v29.9c10.9 4 70.7 27.2 80.6 29.6l13.8-10.1v-28.9s-88.1-25.4-90.2-26.8l-4.2 6.4Zm194.4-66.9c-19.3 6.8-1.1 56.8 18.1 49.6 19.2-6.9 1-56.7-18.1-49.6Zm-1.1 81.8c-7.1-4.8-16.3-11.2-23.5-15.9-22.2-13.6-27.1-26.6-25.7 9.5h-28.6v32h28.6v18.8c0 3.6 3.4 5.8 6.1 4 12.7-8.6 38.4-26.1 51.2-34.7 6.7-5.6-4.4-10.9-8.2-13.6Z",
+    barracks:
+      "m138.6 172.6 3.8 3.2s-12.3 8.4-20.5 7c-8.1-1.5-16.2-23-16.2-23.3-.5-7.8-7-13.8-14.8-13.8s-14.8 6.6-14.8 14.8 1.1 6.5 3 9c2.6 3.5 6.7 5.7 11.3 5.9-34.5 25.8-75.6 24.7-75.6 24.7l28.4-65.6 8.8 5.2 30-25.1-18.8-13.9s-14.8 2.7-28.2 12.4c-2.1 4.8-9.6 27.4-9.6 27.4L12 146.9l11-40.6 1.6-5.9c7-20.9 26.7-36.1 50-36.1s52.7 23.6 52.7 52.7-.8 11.3-2.6 16.4c-1.6 11.4-1.5 29.8 13.9 39.2Zm18-63.1 27.3-3.4c-2-19.5-8.2-37.8-18-53.6l-36.8 14.9 28.3-27C146.1 26.5 131.8 15.3 115 8.3L94.5 42.5l8-38.6c-.6-.2-1.3-.4-1.9-.5C87.5 0 74.2-.8 61.4.8l4.2 30.8L51 2.5c-16.9-.4-33.3 4.2-51 9l39.3 45.1c10.4-1.4 35-10.3 45.6-7.6 46.3 12.1 64.7 54.6 54.1 105.1 13.7 11.7 0 0 31.2 31.5 8.8-26.3 4.8-11.8 10-31.5 2.8-11 4.3-22 4.4-32.8l-28-11.7Z",
+    stable:
+      "M218.3 128.8c7.5 2.5 13.7 6.2 18.7 10-12.5-19.8-38.6-60.7-65-68.7 3.7 0 17.5-1.2 20 0-11.2-6.2-13.7-11.2-70-31.2q-8.7-2.5-18.7-6.2C102.2 28 86.5-2.1 69.7.1c1.6 5.7 3 37.8 3.7 41.2 0 0-1.2 0-2.5 1.2-4.6-.8-22.1-12.5-26.2-15 0 0 1.2 23.7 10 31.2-5 5-8.7 10-11.2 8.7-17.6 6.4-11.1 19.4-11.2 32.5-8.9 17.5-13.7 40.2-25 56.2-8.2 2.3-10 13.8-2.5 18.7 2.7 14.1 15 22.5 28.7 21.2 11.2-1.2 18.7-10 21.2-21.2 40.4-10.2 83.1-45.4 35-73.7 79.9 8.7-5 136.2-6.2 141.2 17.5 10 28.7 8.7 63.7 3.7 18.7-7.5 45-30 60-37.5 10.9-24.1 21.2-53.4 11.2-79.9Zm-158.6-30c-2.5 1.2-5 2.5-6.2 2.5-6.2 0-10 3.7-10-1.2s2.5-17.5 8.7-17.5c14.4-2.2 18.5 6.7 7.5 16.2Zm139.9 102.4c-6.2-94.9-81.2-138.7-86.2-141.2 6.2 1.2 103.7 28.7 86.2 141.2Z",
   };
 
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -140,7 +152,7 @@
     return null;
   }
 
-  /* ═══ PRIMARY: Read from React viewData (accurate, no parsing) ═══ */
+  /* ═══ PRIMARY: Read from React viewData ═══ */
   function readVillagesFromReactData() {
     try {
       const scripts = document.querySelectorAll("script");
@@ -172,17 +184,14 @@
     return null;
   }
 
-  /* ═══ FALLBACK: Parse DOM (handles U+2212 minus and other variants) ═══ */
+  /* ═══ FALLBACK: Parse DOM ═══ */
   function parseCoord(text) {
     if (text === undefined || text === null) return null;
     let t = String(text);
-    // Remove directional marks & invisibles
     t = t.replace(/[\u202A-\u202E\u2066-\u2069\u200E\u200F\uFEFF]/g, "");
-    // Normalize all minus-like chars to ASCII hyphen
     t = t.replace(/\u2212/g, "-");
     t = t.replace(/[\u2010\u2011\u2012\u2013\u2014\u2015]/g, "-");
     t = t.replace(/[\uFE58\uFE63\uFF0D]/g, "-");
-    // Keep only digits and hyphen
     t = t.replace(/[^\d-]/g, "");
     if (!t || t === "-" || !/^-?\d+$/.test(t)) return null;
     const n = parseInt(t, 10);
@@ -323,20 +332,28 @@
     window.location.href = url;
   }
 
-  function goToRallyPoint() {
+  function goToBuilding(gid, extra) {
     const vid = getVillageId();
-    const url = vid
-      ? `/build.php?newdid=${vid}&gid=16&tt=1`
-      : `/build.php?gid=16&tt=1`;
-    navigateTo(url);
+    const parts = [];
+    if (vid) parts.push(`newdid=${vid}`);
+    parts.push(`gid=${gid}`);
+    if (extra) parts.push(extra);
+    navigateTo("/build.php?" + parts.join("&"));
+  }
+
+  function goToRallyPoint() {
+    goToBuilding(16, "tt=1");
   }
   function goToMarketplace() {
-    const vid = getVillageId();
-    const url = vid
-      ? `/build.php?newdid=${vid}&id=20&gid=17&t=5`
-      : `/build.php?id=20&gid=17&t=5`;
-    navigateTo(url);
+    goToBuilding(17, "t=5");
   }
+  function goToBarracks() {
+    goToBuilding(19);
+  }
+  function goToStable() {
+    goToBuilding(20);
+  }
+
   function goToVillage(vid) {
     if (!vid) return;
     const u = new URL(location.href);
@@ -492,7 +509,7 @@
       #cqFloat.show { display: flex !important; flex-direction: column; }
       #cqFloat.cq-minimized {
         left: 6px !important; right: auto !important;
-        width: auto !important; max-width: 200px !important;
+        width: auto !important; max-width: 220px !important;
         max-height: none !important; border-radius: 20px !important;
       }
       #cqFloat.cq-minimized .cq-body,
@@ -514,6 +531,7 @@
       }
       .cq-head-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
       .cq-title { font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .cq-version { font-size: 10px; font-weight: normal; opacity: 0.65; margin-left: 2px; }
       .cq-min-toggle {
         cursor: pointer; user-select: none;
         display: inline-flex; align-items: center; justify-content: center;
@@ -522,27 +540,70 @@
         background: rgba(255,255,255,.35); color: #4a2a08;
         border: 1px solid rgba(122,92,48,.4); flex-shrink: 0;
       }
+
+      /* ─── Shortcuts: 4 in a row ─── */
       .cq-shortcuts {
-        display: flex; gap: 8px; padding: 10px 12px;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 6px;
+        padding: 8px 10px;
         background: rgba(255,255,255,.35);
-        border-bottom: 1px solid rgba(122,92,48,.25); flex-shrink: 0;
+        border-bottom: 1px solid rgba(122,92,48,.25);
+        flex-shrink: 0;
       }
       .cq-sc-btn {
-        flex: 1; padding: 12px 8px; font-size: 13px; font-weight: bold;
-        font-family: Verdana, Arial, sans-serif; cursor: pointer;
+        padding: 6px 2px;
+        font-size: 10px;
+        font-weight: bold;
+        font-family: Verdana, Arial, sans-serif;
+        cursor: pointer;
         background: linear-gradient(180deg, #7bc554 0%, #4a8c28 100%);
-        color: #fff; border: 1px solid #3a6a18; border-radius: 8px;
+        color: #fff;
+        border: 1px solid #3a6a18;
+        border-radius: 6px;
         text-shadow: 0 1px 1px rgba(0,0,0,.3);
         box-shadow: inset 0 1px 0 rgba(255,255,255,.35);
         touch-action: manipulation;
-        display: flex; align-items: center; justify-content: center;
-        gap: 6px; min-height: 46px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        min-height: 54px;
+        min-width: 0;
       }
-      .cq-sc-btn:active { transform: translateY(1px); }
+      .cq-sc-btn:active { transform: translateY(1px); filter: brightness(1.1); }
+      .cq-sc-icon {
+        width: 24px;
+        height: 24px;
+        fill: currentColor;
+        flex-shrink: 0;
+      }
+      .cq-sc-label {
+        font-size: 10px;
+        line-height: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+      }
       .cq-sc-btn.cq-sc-gold {
         background: linear-gradient(180deg, #ffc040 0%, #cc8820 100%);
-        border-color: #996010; color: #3a2000;
+        border-color: #996010;
+        color: #3a2000;
       }
+      .cq-sc-btn.cq-sc-red {
+        background: linear-gradient(180deg, #e07050 0%, #a83020 100%);
+        border-color: #802010;
+        color: #fff;
+      }
+      .cq-sc-btn.cq-sc-blue {
+        background: linear-gradient(180deg, #6a9ee8 0%, #3060b0 100%);
+        border-color: #204080;
+        color: #fff;
+      }
+
+      /* ─── Body ─── */
       .cq-body {
         overflow-y: auto; overflow-x: hidden;
         -webkit-overflow-scrolling: touch;
@@ -552,11 +613,11 @@
       .cq-body::-webkit-scrollbar-thumb { background: rgba(122,92,48,.5); border-radius: 3px; }
       .cq-village-list { display: flex; flex-direction: column; }
       .cq-village-row {
-        display: flex; align-items: center; gap: 6px;
-        padding: 6px 8px;
+        display: flex; align-items: center; gap: 8px;
+        padding: 8px 10px;
         border-bottom: 1px solid rgba(122,92,48,.18);
         background: rgba(255,255,255,.15);
-        min-height: 48px;
+        min-height: 60px;
       }
       .cq-village-row:last-child { border-bottom: none; }
       .cq-village-row.cq-vrow-cur {
@@ -565,7 +626,7 @@
       }
       .cq-vname-wrap {
         flex: 1 1 auto; min-width: 0;
-        display: flex; flex-direction: column; gap: 2px;
+        display: flex; flex-direction: column; gap: 3px;
       }
       .cq-vname {
         font-weight: bold; font-size: 13px; color: #4a2a08;
@@ -606,17 +667,24 @@
         margin-left: 1px; opacity: .85;
       }
       .cq-vres-item.cq-res-full .cq-vres-cap { color: #fff; opacity: .9; }
+
+      /* ─── Row action buttons (bigger) ─── */
       .cq-vact {
-        display: flex; gap: 4px; flex-shrink: 0; align-items: center;
+        display: flex; gap: 6px; flex-shrink: 0; align-items: center;
       }
       .cq-vbtn-icon {
-        width: 38px; height: 38px; font-size: 16px; font-weight: bold;
-        cursor: pointer; border-radius: 6px;
+        width: 46px;
+        height: 44px;
+        font-size: 20px;
+        font-weight: bold;
+        cursor: pointer;
+        border-radius: 6px;
         border: 1px solid #b09878;
         background: linear-gradient(180deg, #e0d4b8 0%, #c8b898 100%);
         color: #5a3a10;
         display: flex; align-items: center; justify-content: center;
         touch-action: manipulation; padding: 0; flex-shrink: 0;
+        line-height: 1;
       }
       .cq-vbtn-icon:active { transform: translateY(1px); filter: brightness(1.1); }
       .cq-vbtn-icon.cq-send {
@@ -627,6 +695,7 @@
         background: linear-gradient(180deg, #6a9ee8 0%, #3060b0 100%);
         color: #fff; border-color: #204080;
       }
+
       #cqStatus {
         color: #1a6a10 !important; font-size: 11px;
         padding: 5px 12px; font-weight: bold;
@@ -643,20 +712,35 @@
     document.head.appendChild(s);
   }
 
+  /* ═══ Panel HTML ═══ */
+  function svgIcon(name, viewBox) {
+    return `<svg class="cq-sc-icon" viewBox="${viewBox}"><path d="${ICONS[name]}"/></svg>`;
+  }
+
   function boxHTML() {
     return `
       <div class="cq-head">
         <span class="cq-head-left">
           <span class="cq-min-toggle cq-min" title="Minimize">—</span>
-          <span class="cq-title">📱 Travian Mobile Menu</span>
+          <span class="cq-title">📱 Travian Mobile Menu <span class="cq-version">(v${CFG.SCRIPT_VERSION})</span></span>
         </span>
       </div>
       <div class="cq-shortcuts">
-        <button type="button" class="cq-sc-btn cq-sc-gold" data-shortcut="market">
-          <span>🏪</span><span>Market</span>
+        <button type="button" class="cq-sc-btn cq-sc-gold" data-shortcut="market" title="Marketplace">
+          ${svgIcon("market", "0 0 250 213")}
+          <span class="cq-sc-label">Market</span>
         </button>
-        <button type="button" class="cq-sc-btn" data-shortcut="rally">
-          <span>⚔️</span><span>Rally</span>
+        <button type="button" class="cq-sc-btn cq-sc-red" data-shortcut="rally" title="Rally Point">
+          ${svgIcon("rally", "0 0 199 250")}
+          <span class="cq-sc-label">Rally</span>
+        </button>
+        <button type="button" class="cq-sc-btn cq-sc-blue" data-shortcut="barracks" title="Barracks">
+          ${svgIcon("barracks", "0 0 184.6 200")}
+          <span class="cq-sc-label">Barracks</span>
+        </button>
+        <button type="button" class="cq-sc-btn" data-shortcut="stable" title="Stable">
+          ${svgIcon("stable", "0 0 237.1 250")}
+          <span class="cq-sc-label">Stable</span>
         </button>
       </div>
       <div class="cq-body">
@@ -676,22 +760,23 @@
         setMinimized(!getMinimized());
       });
     }
-    const marketBtn = box.querySelector('[data-shortcut="market"]');
-    if (marketBtn && !marketBtn._bound) {
-      marketBtn._bound = true;
-      marketBtn.addEventListener("click", (e) => {
-        e.preventDefault();
-        goToMarketplace();
-      });
-    }
-    const rallyBtn = box.querySelector('[data-shortcut="rally"]');
-    if (rallyBtn && !rallyBtn._bound) {
-      rallyBtn._bound = true;
-      rallyBtn.addEventListener("click", (e) => {
-        e.preventDefault();
-        goToRallyPoint();
-      });
-    }
+    const handlers = {
+      market: goToMarketplace,
+      rally: goToRallyPoint,
+      barracks: goToBarracks,
+      stable: goToStable,
+    };
+    Object.keys(handlers).forEach((key) => {
+      const btn = box.querySelector(`[data-shortcut="${key}"]`);
+      if (btn && !btn._bound) {
+        btn._bound = true;
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          handlers[key]();
+        });
+      }
+    });
     applyMinimizedClass();
   }
 
@@ -831,7 +916,7 @@
       f.style.left = "6px";
       f.style.right = "auto";
       f.style.bottom = CFG.MINIMIZED_BOTTOM_PX + "px";
-      f.style.maxWidth = "200px";
+      f.style.maxWidth = "220px";
       f.style.maxHeight = "none";
       f.classList.add("cq-mobile");
       return;
