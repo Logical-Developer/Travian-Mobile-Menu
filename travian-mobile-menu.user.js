@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Travian Mobile Menu
 // @namespace    github.com/Logical-Developer/Travian-Mobile-Menu
-// @version      1.1.0
+// @version      1.2.0
 // @description  Mobile menu with village list, resources and quick shortcuts for Travian
 // @author       Logical-Developer
 // @match        https://*.travian.com/*
@@ -21,7 +21,7 @@
   const CFG = {
     STORAGE: "travian_master_storage",
     SCRIPT_ID: "TravianMobileMenu",
-    SCRIPT_VERSION: "1.1.0",
+    SCRIPT_VERSION: "1.2.0",
     TICK_IDLE_MS: 2500,
     TICK_HIDDEN_MS: 10000,
     UI_STATE_KEY: "travian_builder_ui_v1",
@@ -29,7 +29,7 @@
     PANEL_MAX_VH: 50,
   };
 
-  /* ═══ SVG icons (from Travian native) ═══ */
+  /* ═══ SVG icons for shortcuts ═══ */
   const ICONS = {
     rally:
       "M149.6 85.8h20.7v150.5l-70.6-39.6-71.1 39.6V85.8h21.2v115.5l50.1-31.4 49.7 31.4V85.8Zm-13.1.7h-74v88.9L99.6 151l36.8 24.4V86.5Zm50.3-35.2c-3.5 0-6.6 1.4-8.8 3.7H21.1C14 47.2-.4 52.8 0 63.6c-.4 10.8 14 16.5 21.1 8.6H178c17.9 15.1 32.2-18.6 8.8-20.9ZM87.4 219.8V250h24v-30.2c-14-3.7-10.1-3.7-24 0ZM96.6 39c7.6 2.7 19.5-5 22-8.5 1.6-2 1.7-4.8.2-6.7L100.6-.1h-.2L81.9 23.8c-4 7.5 5.6 11.9 14.7 15.2Z",
@@ -72,6 +72,18 @@
   function formatNumber(n) {
     if (n === undefined || n === null || isNaN(n)) return "—";
     return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }
+
+  /* ═══ Format countdown: 1h:20m | 5m:20s | 30s ═══ */
+  function formatCountdown(ms) {
+    if (!ms || ms <= 0) return "";
+    const totalSec = Math.ceil(ms / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    if (h > 0) return `${h}h:${String(m).padStart(2, "0")}m`;
+    if (m > 0) return `${m}m:${String(s).padStart(2, "0")}s`;
+    return `${s}s`;
   }
 
   /* ═══ Detection ═══ */
@@ -152,7 +164,7 @@
     return null;
   }
 
-  /* ═══ PRIMARY: Read from React viewData ═══ */
+  /* ═══ PRIMARY: React viewData ═══ */
   function readVillagesFromReactData() {
     try {
       const scripts = document.querySelectorAll("script");
@@ -184,7 +196,7 @@
     return null;
   }
 
-  /* ═══ FALLBACK: Parse DOM ═══ */
+  /* ═══ FALLBACK: DOM parse ═══ */
   function parseCoord(text) {
     if (text === undefined || text === null) return null;
     let t = String(text);
@@ -197,7 +209,6 @@
     const n = parseInt(t, 10);
     return isNaN(n) ? null : n;
   }
-
   function readVillagesFromDom() {
     const out = [];
     document.querySelectorAll(".listEntry[data-did]").forEach((el) => {
@@ -239,13 +250,11 @@
     }
     return out;
   }
-
   function readVillages() {
     const fromReact = readVillagesFromReactData();
     if (fromReact && fromReact.length) return fromReact;
     return readVillagesFromDom();
   }
-
   function updateVillageCache() {
     const villages = readVillages();
     if (!villages.length) return;
@@ -270,12 +279,13 @@
     if (changed) saveVillageCache(cache);
   }
 
-  /* ═══ Resources ═══ */
+  /* ═══ Resources + Free crop ═══ */
   function readCurrentResources() {
     try {
       if (typeof window.resources === "object" && window.resources.storage) {
         const st = window.resources.storage || {};
         const max = window.resources.maxStorage || {};
+        const prod = window.resources.production || {};
         return {
           wood: st.l1,
           clay: st.l2,
@@ -285,6 +295,7 @@
           maxClay: max.l2,
           maxIron: max.l3,
           maxCrop: max.l4,
+          freeCrop: prod.l5,
         };
       }
     } catch {}
@@ -293,7 +304,7 @@
       if (!el) return undefined;
       const t = (el.textContent || "")
         .replace(/[\u202A-\u202E\u2066-\u2069\u200E\u200F\uFEFF]/g, "")
-        .replace(/[^\d]/g, "");
+        .replace(/[^\d-]/g, "");
       return t ? parseInt(t, 10) : undefined;
     };
     return {
@@ -305,26 +316,81 @@
       maxClay: getNum("#stockBar .warehouse .capacity .value"),
       maxIron: getNum("#stockBar .warehouse .capacity .value"),
       maxCrop: getNum("#stockBar .granary .capacity .value"),
+      freeCrop: getNum("#stockBarFreeCrop"),
     };
+  }
+
+  /* ═══ Construction timer: read from .buildingList ═══ */
+  function readCurrentConstruction() {
+    const timerEl = document.querySelector(
+      ".buildingList .buildDuration .timer[value]," +
+        ".buildingList .buildDuration .timer[data-value]",
+    );
+    if (!timerEl) return null;
+    const raw =
+      timerEl.getAttribute("value") || timerEl.getAttribute("data-value");
+    const sec = parseInt(raw, 10);
+    if (isNaN(sec) || sec <= 0) return null;
+    let name = null,
+      level = null;
+    const li = timerEl.closest("li");
+    if (li) {
+      const lvlEl = li.querySelector(".lvl, .level");
+      if (lvlEl) {
+        const m = (lvlEl.textContent || "").match(/(\d+)/);
+        if (m) level = parseInt(m[1], 10) || null;
+      }
+      const nameEl = li.querySelector(".name");
+      if (nameEl) {
+        const clone = nameEl.cloneNode(true);
+        const lvl = clone.querySelector(".lvl, .level");
+        if (lvl) lvl.remove();
+        name = clone.textContent.replace(/\s+/g, " ").trim() || null;
+      }
+    }
+    return { remainingSec: sec, name, level };
   }
 
   function cacheCurrentVillageResources() {
     const vid = getVillageId();
     if (!vid) return;
+
     const r = readCurrentResources();
-    if (r.wood === undefined && r.clay === undefined) return;
-    cacheVillage(vid, {
-      res: {
-        wood: r.wood,
-        clay: r.clay,
-        iron: r.iron,
-        crop: r.crop,
-        maxWood: r.maxWood,
-        maxClay: r.maxClay,
-        maxIron: r.maxIron,
-        maxCrop: r.maxCrop,
-      },
-    });
+    if (r.wood !== undefined || r.clay !== undefined) {
+      cacheVillage(vid, {
+        res: {
+          wood: r.wood,
+          clay: r.clay,
+          iron: r.iron,
+          crop: r.crop,
+          maxWood: r.maxWood,
+          maxClay: r.maxClay,
+          maxIron: r.maxIron,
+          maxCrop: r.maxCrop,
+          freeCrop: r.freeCrop,
+        },
+      });
+    }
+
+    // Cache construction endsAt
+    const c = readCurrentConstruction();
+    if (c && c.remainingSec > 0) {
+      const endsAt = nowTick() + c.remainingSec * 1000;
+      const cache = getVillageCache();
+      const cur = cache[String(vid)] || {};
+      // Only update if changed by more than 5 seconds to avoid useless writes
+      const prev = cur.buildEndsAt || 0;
+      if (Math.abs(prev - endsAt) > 5000) {
+        cache[String(vid)] = {
+          ...cur,
+          buildEndsAt: endsAt,
+          buildName: c.name || cur.buildName,
+          buildLevel: c.level || cur.buildLevel,
+          ts: nowTick(),
+        };
+        saveVillageCache(cache);
+      }
+    }
   }
 
   /* ═══ Navigation ═══ */
@@ -340,7 +406,6 @@
     if (extra) parts.push(extra);
     navigateTo("/build.php?" + parts.join("&"));
   }
-
   function goToRallyPoint() {
     goToBuilding(16, "tt=1");
   }
@@ -354,11 +419,10 @@
     goToBuilding(20);
   }
 
-  function goToVillage(vid) {
+  /* ═══ Home → dorf1 of that village ═══ */
+  function goToVillageDorf1(vid) {
     if (!vid) return;
-    const u = new URL(location.href);
-    u.searchParams.set("newdid", vid);
-    navigateTo(u.pathname + "?" + u.searchParams.toString());
+    navigateTo(`/dorf1.php?newdid=${vid}`);
   }
 
   /* ═══ Send resources ═══ */
@@ -391,6 +455,7 @@
     goToMarketplace();
   }
 
+  /* ═══ ★ Fixed: fill + force React to see the value ═══ */
   function fillMarketForm(x, y) {
     const setVal = (el, val) => {
       if (!el) return false;
@@ -403,16 +468,58 @@
       el.dispatchEvent(new Event("change", { bubbles: true }));
       return true;
     };
+
     const tryFill = () => {
       const xIn = document.querySelector('input[name="x"]');
       const yIn = document.querySelector('input[name="y"]');
       if (!xIn || !yIn) return false;
+
+      // Focus x and set
+      xIn.focus();
       setVal(xIn, x);
+
+      // Simulate Tab: focus y which blurs x → triggers React onChange validation
+      yIn.focus();
       setVal(yIn, y);
-      xIn.dispatchEvent(new Event("blur", { bubbles: true }));
-      yIn.dispatchEvent(new Event("blur", { bubbles: true }));
+
+      // Real blur on y (fires React's onBlur)
+      yIn.blur();
+
+      // Additional keyboard Tab events for React listeners
+      try {
+        const tabEv = () =>
+          new KeyboardEvent("keydown", {
+            key: "Tab",
+            code: "Tab",
+            keyCode: 9,
+            which: 9,
+            bubbles: true,
+            cancelable: true,
+          });
+        const tabEvUp = () =>
+          new KeyboardEvent("keyup", {
+            key: "Tab",
+            code: "Tab",
+            keyCode: 9,
+            which: 9,
+            bubbles: true,
+            cancelable: true,
+          });
+        xIn.dispatchEvent(tabEv());
+        xIn.dispatchEvent(tabEvUp());
+        yIn.dispatchEvent(tabEv());
+        yIn.dispatchEvent(tabEvUp());
+      } catch {}
+
+      // Also fire blur event explicitly (belt + suspenders)
+      try {
+        xIn.dispatchEvent(new FocusEvent("blur", { bubbles: true }));
+        yIn.dispatchEvent(new FocusEvent("blur", { bubbles: true }));
+      } catch {}
+
       return true;
     };
+
     if (!tryFill()) {
       let tries = 0;
       const iv = setInterval(() => {
@@ -430,8 +537,11 @@
       sessionStorage.removeItem(SEND_TARGET_KEY);
       const t = JSON.parse(raw);
       if (t && typeof t.x === "number" && typeof t.y === "number") {
-        fillMarketForm(t.x, t.y);
-        flashStatus(`📤 Target: ${t.name} (${t.x}|${t.y})`);
+        // Small delay to let React render the form
+        setTimeout(() => {
+          fillMarketForm(t.x, t.y);
+          flashStatus(`📤 Target: ${t.name} (${t.x}|${t.y})`);
+        }, 400);
       }
     } catch {}
   }
@@ -469,9 +579,8 @@
         r.top < window.innerHeight
       ) {
         const offset = window.innerHeight - r.top;
-        if (offset > 40 && offset < window.innerHeight * 0.85) {
+        if (offset > 40 && offset < window.innerHeight * 0.85)
           return Math.round(offset + 6);
-        }
       }
     }
     const nav =
@@ -541,7 +650,6 @@
         border: 1px solid rgba(122,92,48,.4); flex-shrink: 0;
       }
 
-      /* ─── Shortcuts: 4 in a row ─── */
       .cq-shortcuts {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
@@ -553,57 +661,38 @@
       }
       .cq-sc-btn {
         padding: 6px 2px;
-        font-size: 10px;
-        font-weight: bold;
+        font-size: 10px; font-weight: bold;
         font-family: Verdana, Arial, sans-serif;
         cursor: pointer;
         background: linear-gradient(180deg, #7bc554 0%, #4a8c28 100%);
-        color: #fff;
-        border: 1px solid #3a6a18;
-        border-radius: 6px;
+        color: #fff; border: 1px solid #3a6a18; border-radius: 6px;
         text-shadow: 0 1px 1px rgba(0,0,0,.3);
         box-shadow: inset 0 1px 0 rgba(255,255,255,.35);
         touch-action: manipulation;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 3px;
-        min-height: 54px;
-        min-width: 0;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        gap: 3px; min-height: 54px; min-width: 0;
       }
       .cq-sc-btn:active { transform: translateY(1px); filter: brightness(1.1); }
-      .cq-sc-icon {
-        width: 24px;
-        height: 24px;
-        fill: currentColor;
-        flex-shrink: 0;
-      }
+      .cq-sc-icon { width: 24px; height: 24px; fill: currentColor; flex-shrink: 0; }
       .cq-sc-label {
-        font-size: 10px;
-        line-height: 1;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: 100%;
+        font-size: 10px; line-height: 1;
+        white-space: nowrap; overflow: hidden;
+        text-overflow: ellipsis; max-width: 100%;
       }
       .cq-sc-btn.cq-sc-gold {
         background: linear-gradient(180deg, #ffc040 0%, #cc8820 100%);
-        border-color: #996010;
-        color: #3a2000;
+        border-color: #996010; color: #3a2000;
       }
       .cq-sc-btn.cq-sc-red {
         background: linear-gradient(180deg, #e07050 0%, #a83020 100%);
-        border-color: #802010;
-        color: #fff;
+        border-color: #802010; color: #fff;
       }
       .cq-sc-btn.cq-sc-blue {
         background: linear-gradient(180deg, #6a9ee8 0%, #3060b0 100%);
-        border-color: #204080;
-        color: #fff;
+        border-color: #204080; color: #fff;
       }
 
-      /* ─── Body ─── */
       .cq-body {
         overflow-y: auto; overflow-x: hidden;
         -webkit-overflow-scrolling: touch;
@@ -611,6 +700,7 @@
       }
       .cq-body::-webkit-scrollbar { width: 6px; }
       .cq-body::-webkit-scrollbar-thumb { background: rgba(122,92,48,.5); border-radius: 3px; }
+
       .cq-village-list { display: flex; flex-direction: column; }
       .cq-village-row {
         display: flex; align-items: center; gap: 8px;
@@ -636,9 +726,32 @@
         text-align: left; font-family: inherit;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         max-width: 100%;
+        display: flex; align-items: center; gap: 6px;
       }
       .cq-vname:hover { background: rgba(255,255,255,.4); }
       .cq-village-row.cq-vrow-cur .cq-vname { color: #1a5a10; }
+      .cq-vname-text {
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        flex: 1 1 auto; min-width: 0;
+      }
+
+      /* Construction timer */
+      .cq-ctimer {
+        font-size: 10px;
+        font-family: 'Courier New', monospace;
+        font-weight: bold;
+        color: #8a4a00;
+        background: rgba(255,220,120,.65);
+        padding: 1px 5px;
+        border-radius: 3px;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+      .cq-ctimer.cq-ctimer-done {
+        color: #fff;
+        background: #4a8c28;
+      }
+
       .cq-vres {
         display: flex; gap: 3px; flex-wrap: nowrap;
         font-size: 10px; font-family: 'Courier New', monospace;
@@ -668,23 +781,34 @@
       }
       .cq-vres-item.cq-res-full .cq-vres-cap { color: #fff; opacity: .9; }
 
-      /* ─── Row action buttons (bigger) ─── */
+      /* Free crop badge */
+      .cq-vfree {
+        font-weight: bold; font-size: 9px;
+        padding: 0 3px; border-radius: 2px;
+        margin-left: 3px;
+      }
+      .cq-vfree.pos { color: #1a6a10; background: rgba(120,200,80,.35); }
+      .cq-vfree.neg {
+        color: #fff; background: #c0392b;
+        animation: cqPulse 1s ease-in-out infinite;
+      }
+
+      /* Row action buttons */
       .cq-vact {
         display: flex; gap: 6px; flex-shrink: 0; align-items: center;
       }
       .cq-vbtn-icon {
-        width: 46px;
-        height: 44px;
-        font-size: 20px;
-        font-weight: bold;
+        width: 50px;
+        height: 48px;
+        font-size: 24px;
+        line-height: 1;
         cursor: pointer;
-        border-radius: 6px;
+        border-radius: 7px;
         border: 1px solid #b09878;
         background: linear-gradient(180deg, #e0d4b8 0%, #c8b898 100%);
         color: #5a3a10;
         display: flex; align-items: center; justify-content: center;
         touch-action: manipulation; padding: 0; flex-shrink: 0;
-        line-height: 1;
       }
       .cq-vbtn-icon:active { transform: translateY(1px); filter: brightness(1.1); }
       .cq-vbtn-icon.cq-send {
@@ -816,6 +940,8 @@
       return;
     }
 
+    const now = nowTick();
+
     const html = order
       .map((vid) => {
         const v = cache[vid] || {};
@@ -826,6 +952,17 @@
           y = v.y;
         const coords =
           typeof x === "number" && typeof y === "number" ? ` (${x}|${y})` : "";
+
+        // ─── Construction timer ───
+        let ctimer = "";
+        if (v.buildEndsAt) {
+          const remain = v.buildEndsAt - now;
+          if (remain > 0) {
+            ctimer = `<span class="cq-ctimer" title="${escapeHtml(v.buildName || "Building")} L${v.buildLevel || "?"}">🔨 ${formatCountdown(remain)}</span>`;
+          } else {
+            ctimer = `<span class="cq-ctimer cq-ctimer-done" title="Done">✓ Done</span>`;
+          }
+        }
 
         const cell = (key, max, ico) => {
           const val = r[key];
@@ -843,14 +980,25 @@
             cap && cap > 0
               ? `<span class="cq-vres-cap">/${formatNumber(cap)}</span>`
               : "";
-          return `<span class="${cls}"><span class="cq-ico">${ico}</span>${formatNumber(val)}${capTxt}</span>`;
+
+          // Free crop badge on crop cell
+          let freeBadge = "";
+          if (key === "crop") {
+            const fc = r.freeCrop;
+            if (typeof fc === "number" && !isNaN(fc)) {
+              const isNeg = fc < 0;
+              freeBadge = `<span class="cq-vfree ${isNeg ? "neg" : "pos"}">${fc > 0 ? "+" : ""}${fc}</span>`;
+            }
+          }
+          return `<span class="${cls}"><span class="cq-ico">${ico}</span>${formatNumber(val)}${capTxt}${freeBadge}</span>`;
         };
 
         return `
         <div class="cq-village-row ${isCur ? "cq-vrow-cur" : ""}" data-vid="${vid}">
           <div class="cq-vname-wrap">
             <button type="button" class="cq-vname" data-vid="${vid}" title="${escapeHtml(name)}${coords}">
-              ${escapeHtml(name)}${coords}
+              <span class="cq-vname-text">${escapeHtml(name)}${coords}</span>
+              ${ctimer}
             </button>
             <div class="cq-vres">
               ${cell("wood", "maxWood", "🪵")}
@@ -860,8 +1008,8 @@
             </div>
           </div>
           <div class="cq-vact">
-            <button type="button" class="cq-vbtn-icon cq-send" data-send="${vid}" title="Send resources to ${escapeHtml(name)}">📤</button>
-            <button type="button" class="cq-vbtn-icon cq-go" data-go="${vid}" title="Go to ${escapeHtml(name)}">🏠</button>
+            <button type="button" class="cq-vbtn-icon cq-send" data-send="${vid}" title="Send resources to ${escapeHtml(name)}">🏪</button>
+            <button type="button" class="cq-vbtn-icon cq-go" data-go="${vid}" title="Go to ${escapeHtml(name)} (dorf1)">🏠</button>
           </div>
         </div>`;
       })
@@ -875,7 +1023,7 @@
       btn.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        goToVillage(btn.dataset.vid);
+        goToVillageDorf1(btn.dataset.vid);
       });
     });
     document.querySelectorAll("[data-go]").forEach((btn) => {
@@ -884,7 +1032,7 @@
       btn.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        goToVillage(btn.dataset.go);
+        goToVillageDorf1(btn.dataset.go);
       });
     });
     document.querySelectorAll("[data-send]").forEach((btn) => {
@@ -966,8 +1114,6 @@
     ensureStorage();
     updateVisibility();
     updateVillageCache();
-    const v = readVillages();
-    console.log("[TMM] villages read:", v);
     tick();
 
     setInterval(() => {
