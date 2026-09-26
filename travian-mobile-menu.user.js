@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Travian Mobile Menu
-// @namespace    github.com/Logical-Developer/Travian-Mobile-Menu / ...
+// @namespace    github.com/Logical-Developer/Travian-Mobile-Menu
 // @version      1.0.0
 // @description  Mobile menu with village list, resources and quick shortcuts for Travian
 // @author       Logical-Developer
