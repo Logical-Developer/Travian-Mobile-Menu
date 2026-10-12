@@ -1,0 +1,127 @@
+# Travian Mobile Menu - Cline Rules
+
+## Language Rules (قوانین زبان)
+- **همه‌ی گفتگوها، توضیحات، تحلیل‌ها و فکر کردن‌ها به زبان فارسی باشد.**
+- **تمام کد، کامنت‌های داخل کد، نام متغیرها، نام توابع، commit message ها و متن رابط کاربری (UI strings) به انگلیسی باشد.**
+- در پاسخ‌ها، ابتدا توضیح فارسی بده، سپس کد انگلیسی را قرار بده.
+
+## Project Overview
+This is a **Travian browser userscript** (Tampermonkey/Violentmonkey) that adds a mobile-friendly floating menu with:
+- Village list with resources, production, free crop
+- Construction timers per village
+- Quick shortcuts (Market, Rally, Barracks, Stable)
+- Resource send feature (auto-fill market form)
+- Browser notifications on build completion
+- Celebration (Town Hall) timer tracking
+
+## File Structure
+```
+/
+├── Travian-Mobile-Menu.user.js       # ← Main userscript (ACTIVE)
+├── README.md                          # ← Project documentation
+├── .clinerules                         # ← This file
+├── .gitignore                          # ← Git ignore
+├── LICENSE                             # ← MIT License
+├── Backup/                             # ← Old versions (IGNORED by git)
+│   └── Travian Mobile Menu-1.2.0.user.js
+├── Private-Document/                   # ← Private notes & DOM dumps (IGNORED by git)
+│   └── Travian-Dom/
+│       ├── Dorf1 - Dom.txt
+│       └── Town Hall - Dom.txt
+└── .vscode/
+    └── settings.json
+```
+
+## Versioning Rules (قوانین نسخه‌بندی)
+- از **Semantic Versioning** استفاده کن: `MAJOR.MINOR.PATCH`
+  - **MAJOR**: تغییرات بزرگ، شکستن سازگاری
+  - **MINOR**: افزودن قابلیت جدید (نسخه فعلی: `1.3.x` → `1.4.0`)
+  - **PATCH**: رفع باگ
+- در **هر بار تغییر فایل اصلی**، حتماً این سه جا را آپدیت کن:
+  1. `@version` در هدر userscript
+  2. `CFG.SCRIPT_VERSION` در کد
+  3. نمایش نسخه در UI: `<span class="cq-version">(v${CFG.SCRIPT_VERSION})</span>`
+- **قبل از هر تغییر، از نسخه فعلی در پوشه `Backup/` کپی بگیر** با نام:
+  `Travian Mobile Menu-<VERSION>.user.js.txt`
+- الگوی updateURL و downloadURL حفظ شود:
+  ```
+  https://raw.githubusercontent.com/Logical-Developer/Travian-Mobile-Menu/main/Travian-Mobile-Menu.user.js
+  ```
+
+## Coding Rules (قوانین کدنویسی)
+- **Vanilla JavaScript فقط** — بدون کتابخانه، بدون build step.
+- `@grant none` حفظ شود (بدون GM_* APIs).
+- سازگاری با **Chrome/Firefox/Safari موبایل** حفظ شود.
+- از **IIFE** و `'use strict';` استفاده می‌شود.
+- **بدون `eval()`، بدون `innerHTML` با ورودی کاربر بدون escape**.
+- تمام متن‌های DOM کاربر باید با `escapeHtml()` پاک‌سازی شوند.
+- از `setTextIfChanged` / `setHTMLIfChanged` / `setClassIfChanged` برای جلوگیری از reflow استفاده کن.
+- هیچ `console.log` در نسخه نهایی نباشد به جز `[TMM]` warnings/errors.
+- از `localStorage` فقط از طریق توابع `_readRaw` / `_writeRaw` استفاده کن.
+
+## DOM Integration Rules (قوانین DOM)
+- **هرگز DOM اصلی Travian را تخریب نکن.**
+- برای خواندن اطلاعات، فقط `querySelector` امن استفاده کن.
+- برای تغییر فرم (مثل market)، از React-compatible setter استفاده کن:
+  ```js
+  Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set
+  ```
+- از MutationObserver استفاده نکن مگر لازم باشد؛ به جایش از tick loop (هر 2500ms) استفاده کن.
+- کلاس‌های Travian (مثل `#l1`, `#l2`, `.buildingList`) را با احتیاط بخوان، چون ممکن است بین نسخه‌ها تغییر کنند.
+- اگر selector شکست خورد، **fail-safe** باش (return null، بدون throw).
+
+## Current Features (v1.3.1)
+- [x] Village list with resources (wood/clay/iron/crop + capacity)
+- [x] Free crop badge (green/red)
+- [x] Production badge (tiny — **TO BE MOVED**)
+- [x] Construction timer per village (🔨 countdown / Done)
+- [x] Quick shortcuts: Market, Rally, Barracks, Stable
+- [x] Send resources → auto-fill market form
+- [x] Notification toggle (🔔/🔕)
+- [x] Minimize/expand panel
+- [x] Web Audio beep on build done
+- [x] Title blink on build done
+
+## Upcoming Features (v1.4.0 — TO IMPLEMENT)
+1. **Move Production display** from village row to a new collapsible panel.
+   - Source: `.villageInfobox.production` (only on dorf1.php, hidden on mobile).
+   - New panel placed after `.villageInfobox.movements` in DOM.
+   - Collapsible with state persisted in localStorage.
+   - Horizontal single-line layout.
+
+2. **Celebration (Town Hall) timer** per village.
+   - Source: `build.php?id=36&gid=24` → `.under_progress .dur .timer[value]`
+   - Parse `value` attribute (seconds remaining).
+   - Cache per village like `buildEndsAt`.
+   - Display in village row as a **music note (♫)** icon:
+     - **Black ♫ + timer** if celebration is running.
+     - **Red blinking ♫** if no celebration active or no data.
+
+3. **Replace** the current `.cq-vprod` production badge with the celebration music note.
+
+## Safety Rules (قوانین ایمنی)
+- **قبل از هر refactor، نسخه فعلی را در Backup کپی کن.**
+- **هیچ‌وقت یک قابلیت موجود را حذف نکن مگر صریحاً درخواست شود.**
+- **بعد از هر تغییر، تست کن:**
+  - در `dorf1.php` و `dorf2.php` و `build.php?gid=17&t=5` و `build.php?id=36&gid=24`
+  - روی موبایل (DevTools mobile emulation)
+  - روی مرورگر دسکتاپ (mobileForced class)
+- اگر باگ دیدی، **قبل از fix**، توضیح فارسی بده که چه چیزی شکسته.
+- اگر نیاز به DOM dump جدید داری، از کاربر بخواه در پوشه `Private-Document/Travian-Dom/` قرار دهد.
+
+## Git Rules
+- **Backup/ و Private-Document/ در .gitignore هستند** — هیچ‌وقت commit نکن.
+- commit message به انگلیسی، کوتاه و معنادار:
+  - `feat: add celebration timer per village`
+  - `fix: production panel not showing on dorf2`
+  - `chore: bump version to 1.4.0`
+  - `docs: update README with new features`
+- قبل از commit، نسخه را در سه جا bump کن (بالا ذکر شد).
+
+## Communication Style
+- پاسخ‌ها **فارسی** باشند.
+- کد **انگلیسی** با کامنت‌های انگلیسی.
+- هر بار که فایل را تغییر دادی، در انتها **خلاصه فارسی** بده:
+  - چه تغییر کرد
+  - نسخه جدید چیست
+  - چه چیزهایی باید تست شود

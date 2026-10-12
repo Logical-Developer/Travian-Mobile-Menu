@@ -1,0 +1,56 @@
+# === Travian Mobile Menu ===
+
+# Backup folder (old versions)
+Backup/
+backup/
+*.backup
+*.bak
+
+# Private documents & DOM dumps
+Private-Document/
+private-document/
+Private/
+private/
+
+# Node / npm (in case of future tooling)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Editor / IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Logs
+*.log
+logs/
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Temp
+tmp/
+temp/
+*.tmp
